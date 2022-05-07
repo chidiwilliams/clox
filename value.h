@@ -1,7 +1,3 @@
-//
-// Created by Chidi Williams on 4/23/22.
-//
-
 #ifndef CLOX_VALUE_H
 #define CLOX_VALUE_H
 

@@ -20,6 +20,7 @@ typedef struct {
 typedef enum {
     PREC_NONE,
     PREC_ASSIGNMENT, // =
+    PREC_TERNARY, // ?:
     PREC_OR, // or
     PREC_AND, // and
     PREC_EQUALITY, // == !=
@@ -119,7 +120,6 @@ static ParseRule *getRule(TokenType type);
 
 static void parsePrecedence(Precedence precedence);
 
-
 static void binary() {
     TokenType operatorType = parser.previous.type;
     ParseRule *rule = getRule(operatorType);
@@ -143,6 +143,12 @@ static void binary() {
     }
 }
 
+static void ternary() {
+    parsePrecedence((Precedence) (PREC_TERNARY + 1));
+    consume(TOKEN_COLON, "Expect ':' after ternary.");
+    parsePrecedence((Precedence) (PREC_TERNARY + 1));
+    emitByte(OP_TERNARY);
+}
 
 void expression() {
     parsePrecedence(PREC_ASSIGNMENT);
@@ -229,16 +235,44 @@ ParseRule rules[] = {
         [TOKEN_WHILE]         = {NULL, NULL, PREC_NONE},
         [TOKEN_ERROR]         = {NULL, NULL, PREC_NONE},
         [TOKEN_EOF]           = {NULL, NULL, PREC_NONE},
+        [TOKEN_QUESTION_MARK] = {NULL, ternary, PREC_TERNARY},
 };
+
+#ifdef DEBUG_TRACE_EXECUTION
+typedef struct {
+    ParseFn fn;
+    char *name;
+} FunctionMeta;
+
+FunctionMeta meta[] = {
+        {number, "number"},
+        {grouping, "grouping"},
+        {unary, "unary"},
+        {binary, "binary"},
+};
+
+char *functionName(ParseFn parseFn) {
+    for (int i = 0; i < sizeof(meta) / sizeof(meta[0]); ++i) {
+        if (meta[i].fn == parseFn) return meta[i].name;
+    }
+    return NULL;
+}
+
+#endif
 
 /**
  * Parses the next tokens at or below the given precedence.
  * First, it gets the *prefix* parser for the current token,
- * and calls the parser. Then it looks for an *infix* parser
- * for the next token and calls it.
+ * and calls the parser. While the next token has a higher
+ * precedence than the given precedence, it gets the *infix*
+ * parser for the token and calls the parser.
  * @param precedence
  */
 static void parsePrecedence(Precedence precedence) {
+#ifdef DEBUG_TRACE_EXECUTION
+    printf("Parsing with precedence: %d\n", precedence);
+#endif
+
     advance();
     ParseFn prefixRule = getRule(parser.previous.type)->prefix;
     if (prefixRule == NULL) {
@@ -246,11 +280,17 @@ static void parsePrecedence(Precedence precedence) {
         return;
     }
 
+#ifdef DEBUG_TRACE_EXECUTION
+    printf("Calling prefix rule: %s\n", functionName(prefixRule));
+#endif
     prefixRule();
 
     while (precedence <= getRule(parser.current.type)->precedence) {
         advance();
         ParseFn infixRule = getRule(parser.previous.type)->infix;
+#ifdef DEBUG_TRACE_EXECUTION
+        printf("Calling infix rule: %s\n", functionName(infixRule));
+#endif
         infixRule();
     }
 }

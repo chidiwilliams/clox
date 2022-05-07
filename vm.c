@@ -1,7 +1,3 @@
-//
-// Created by Chidi Williams on 5/2/22.
-//
-
 #include <printf.h>
 #include "vm.h"
 #include "common.h"
@@ -80,6 +76,13 @@ static InterpretResult run() {
             case OP_NEGATE:
                 push(-pop());
                 break;
+            case OP_TERNARY: {
+                double c = pop();
+                double b = pop();
+                double a = pop();
+                push(a ? b : c);
+                break;
+            }
         }
     }
 #undef READ_BYTE

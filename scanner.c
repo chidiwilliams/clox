@@ -10,7 +10,6 @@ typedef struct {
 
 Scanner scanner;
 
-
 void initScanner(const char *source) {
     scanner.start = source;
     scanner.current = source;
@@ -228,6 +227,10 @@ Token scanToken() {
             return makeToken(match('=') ? TOKEN_GREATER_EQUAL : TOKEN_GREATER);
         case '"':
             return string();
+        case '?':
+            return makeToken(TOKEN_QUESTION_MARK);
+        case ':':
+            return makeToken(TOKEN_COLON);
         default:
             return errorToken("Unexpected character.");
     }
