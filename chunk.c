@@ -49,6 +49,8 @@ int addConstant(Chunk *chunk, Value value) {
  * the index is greater than one byte, it writes and OP_CONSTANT_LONG instruction
  * and stores the operand as a 24-bit number, lowest-order byte first.
  *
+ * TODO: Move to makeConstant() in compiler.c
+ *
  * @param chunk
  * @param value
  * @param line

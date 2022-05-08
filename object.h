@@ -23,8 +23,10 @@ struct Obj {
 struct ObjString {
     Obj obj;
     int length;
-    char *chars;
-    bool fromSource;
+    // Chapter 19, Challenge #1
+    // chars[] is a flexible array member instead of a
+    // pointer to a character array, to improve performance
+    char chars[];
 };
 
 ObjString *takeString(char *chars, int length);

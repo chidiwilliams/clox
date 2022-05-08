@@ -7,6 +7,9 @@
 #define ALLOCATE_OBJ(type, objectType) \
     (type*)allocateObject(sizeof(type), objectType)
 
+#define ALLOCATE_STRING(length) \
+    (ObjString *) allocateObject(sizeof(ObjString) + length * sizeof(char), OBJ_STRING)
+
 static Obj *allocateObject(size_t size, ObjType type) {
     Obj *object = (Obj *) reallocate(NULL, 0, size);
     object->type = type;
@@ -17,12 +20,18 @@ static Obj *allocateObject(size_t size, ObjType type) {
 }
 
 ObjString *allocateString(char *chars, int length) {
-    ObjString *string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+    ObjString *string = ALLOCATE_STRING(length);
     string->length = length;
-    string->chars = chars;
+    strcpy(string->chars, chars);
     return string;
 }
 
+/**
+ * Copies the given character array into a newly allocated ObjString.
+ * @param chars
+ * @param length
+ * @return
+ */
 ObjString *copyString(const char *chars, int length) {
     char *heapChars = ALLOCATE(char, length + 1);
     memcpy(heapChars, chars, length);
@@ -38,6 +47,15 @@ void printObject(Value value) {
     }
 }
 
+/**
+ * Allocates and returns a new ObjString with the given characters.
+ * After allocation, it frees the passed character array.
+ * @param chars
+ * @param length
+ * @return
+ */
 ObjString *takeString(char *chars, int length) {
-    return allocateString(chars, length);
+    ObjString *string = allocateString(chars, length);
+    FREE_ARRAY(char, chars, length + 1);
+    return string;
 }
