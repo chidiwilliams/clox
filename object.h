@@ -23,6 +23,7 @@ struct Obj {
 struct ObjString {
     Obj obj;
     int length;
+    uint32_t hash;
     // Chapter 19, Challenge #1
     // chars[] is a flexible array member instead of a
     // pointer to a character array, to improve performance

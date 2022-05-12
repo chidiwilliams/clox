@@ -19,11 +19,22 @@ static Obj *allocateObject(size_t size, ObjType type) {
     return object;
 }
 
-ObjString *allocateString(char *chars, int length) {
+ObjString *allocateString(char *chars, int length, uint32_t hash) {
     ObjString *string = ALLOCATE_STRING(length);
     string->length = length;
+    string->hash = hash;
     strcpy(string->chars, chars);
+    tableSet(&vm.strings, string, NIL_VAL());
     return string;
+}
+
+uint32_t hashString(const char *key, int length) {
+    uint32_t hash = 2166136261u;
+    for (int i = 0; i < length; ++i) {
+        hash ^= (uint8_t) key[i];
+        hash *= 16777619;
+    }
+    return hash;
 }
 
 /**
@@ -33,10 +44,14 @@ ObjString *allocateString(char *chars, int length) {
  * @return
  */
 ObjString *copyString(const char *chars, int length) {
+    uint32_t hash = hashString(chars, length);
+    ObjString *interned = tableFindString(&vm.strings, chars, length, hash);
+    if (interned != NULL) return interned;
+
     char *heapChars = ALLOCATE(char, length + 1);
     memcpy(heapChars, chars, length);
     heapChars[length] = '\0';
-    return allocateString(heapChars, length);
+    return allocateString(heapChars, length, hash);
 }
 
 void printObject(Value value) {
@@ -55,7 +70,13 @@ void printObject(Value value) {
  * @return
  */
 ObjString *takeString(char *chars, int length) {
-    ObjString *string = allocateString(chars, length);
+    uint32_t hash = hashString(chars, length);
+    ObjString *interned = tableFindString(&vm.strings, chars, length, hash);
+    if (interned != NULL) {
+        FREE_ARRAY(char, chars, length + 1);
+        return interned;
+    }
+    ObjString *string = allocateString(chars, length, hash);
     FREE_ARRAY(char, chars, length + 1);
     return string;
 }
