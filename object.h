@@ -19,7 +19,6 @@ struct Obj {
     struct Obj *next;
 };
 
-// How is ObjString an Obj?
 struct ObjString {
     Obj obj;
     int length;
