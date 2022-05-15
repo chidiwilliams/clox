@@ -64,7 +64,9 @@ Entry *findEntry(Entry *entries, int capacity, Value key) {
                 // We found a tombstone
                 if (tombstone == NULL) tombstone = entry;
             }
-        } else if (IS_STRING(entry->key) && IS_STRING(key) && AS_STRING(entry->key) == AS_STRING(key)) {
+        } else if ((IS_STRING(entry->key) && IS_STRING(key) && AS_STRING(entry->key) == AS_STRING(key))
+                   || (IS_BOOL(entry->key) && IS_BOOL(key) && AS_BOOL(entry->key) == AS_BOOL(key))
+                   || (IS_NUMBER(entry->key) && IS_NUMBER(key) && AS_NUMBER(entry->key) == AS_NUMBER(key))) {
             // We found the key
             return entry;
         }
