@@ -1,7 +1,3 @@
-//
-// Created by Chidi Williams on 4/5/22.
-//
-
 #ifndef CLOX_CHUNK_H
 #define CLOX_CHUNK_H
 
@@ -26,6 +22,7 @@ typedef enum {
     OP_DIVIDE,
     OP_NOT,
     OP_TERNARY,
+    OP_PRINT,
 } OpCode;
 
 typedef struct {
