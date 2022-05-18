@@ -13,6 +13,7 @@ typedef struct {
     Value *stackTop; // points to the location where the next item in the stack goes
     Table strings;
     Obj *objects;
+    Table globals;
 } VM;
 
 typedef enum {

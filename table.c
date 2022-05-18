@@ -121,7 +121,7 @@ bool tableSet(Table *table, Value key, Value value) {
 
     entry->key = key;
     entry->value = value;
-    return true;
+    return isNewKey;
 }
 
 void tableAddAll(Table *from, Table *to) {
