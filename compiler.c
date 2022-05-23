@@ -44,6 +44,7 @@ typedef struct {
 typedef struct {
     Token name;
     int depth;
+    bool isConst;
 } Local;
 
 typedef struct {
@@ -265,6 +266,8 @@ static int resolveLocal(Compiler *compiler, Token *name) {
         if (identifiersEqual(name, &local->name)) {
             if (local->depth == -1) {
                 errorAtCurrent("Can't read local variable in its own initializer.");
+            } else if (local->isConst) {
+                errorAtCurrent("Cannot re-assign constant local variable.");
             }
             return i;
         }
@@ -481,6 +484,7 @@ static void synchronize() {
             case TOKEN_CLASS:
             case TOKEN_FUN:
             case TOKEN_VAR:
+            case TOKEN_CONST:
             case TOKEN_FOR:
             case TOKEN_IF:
             case TOKEN_WHILE:
@@ -502,6 +506,7 @@ static void addLocal(Token name) {
     Local *local = &current->locals[current->localCount++];
     local->name = name;
     local->depth = -1;
+    local->isConst = false;
 }
 
 
@@ -534,34 +539,44 @@ static uint8_t parseVariable(const char *errorMessage) {
     return identifierConstant(&parser.previous);
 }
 
-static void markInitialized() {
-    current->locals[current->localCount - 1].depth = current->scopeDepth;
+static void markInitialized(bool isConst) {
+    Local *local = &current->locals[current->localCount - 1];
+    local->depth = current->scopeDepth;
+    local->isConst = isConst;
 }
 
-static void defineVariable(uint8_t global) {
+static void defineVariable(uint8_t global, bool isConst) {
+    // If we're inside a block, the variable definition has
+    // already been handled by the expression parsing
     if (current->scopeDepth > 0) {
-        markInitialized();
+        markInitialized(isConst);
         return;
     }
-    emitBytes(OP_DEFINE_GLOBAL, global);
+    uint8_t instruction = isConst ? OP_DEFINE_GLOBAL_CONST : OP_DEFINE_GLOBAL;
+    emitBytes(instruction, global);
 }
 
-static void varDeclaration() {
+static void varDeclaration(bool isConst) {
     uint8_t global = parseVariable("Expect variable name.");
 
     if (match(TOKEN_EQUAL)) {
         expression();
     } else {
+        if (isConst) {
+            errorAtCurrent("Missing initializer in const declaration.");
+        }
         emitByte(OP_NIL);
     }
     consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
 
-    defineVariable(global);
+    defineVariable(global, isConst);
 }
 
 static void declaration() {
     if (match(TOKEN_VAR)) {
-        varDeclaration();
+        varDeclaration(false);
+    } else if (match(TOKEN_CONST)) {
+        varDeclaration(true);
     } else {
         statement();
     }

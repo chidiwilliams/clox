@@ -136,6 +136,35 @@ static InterpretResult run() {
                 push(vm.stack[slot]);
                 break;
             }
+            case OP_DEFINE_GLOBAL: {
+                ObjString *name = READ_STRING();
+                tableSet(&vm.globals, OBJ_VAL(name), peek(0));
+                pop();
+                break;
+            }
+            case OP_DEFINE_GLOBAL_CONST: {
+                ObjString *name = READ_STRING();
+                tableSet(&vm.globals, OBJ_VAL(name), peek(0));
+                tableSet(&vm.constants, OBJ_VAL(name), NIL_VAL());
+                pop();
+                break;
+            }
+            case OP_SET_GLOBAL: {
+                ObjString *name = READ_STRING();
+
+                Value value;
+                if (tableGet(&vm.constants, OBJ_VAL(name), &value)) {
+                    runtimeError("Cannot re-assign constant '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                if (tableSet(&vm.globals, OBJ_VAL(name), peek(0))) {
+                    tableDelete(&vm.globals, OBJ_VAL(name));
+                    runtimeError("Undefined variable '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
             case OP_GET_GLOBAL: {
                 ObjString *name = READ_STRING();
                 Value value;
@@ -144,12 +173,6 @@ static InterpretResult run() {
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 push(value);
-                break;
-            }
-            case OP_DEFINE_GLOBAL: {
-                ObjString *name = READ_STRING();
-                tableSet(&vm.globals, OBJ_VAL(name), peek(0));
-                pop();
                 break;
             }
             case OP_GREATER:
@@ -167,15 +190,6 @@ static InterpretResult run() {
                     push(NUMBER_VAL(a + b));
                 } else {
                     runtimeError("Operands must be two numbers or two strings.");
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-                break;
-            }
-            case OP_SET_GLOBAL: {
-                ObjString *name = READ_STRING();
-                if (tableSet(&vm.globals, OBJ_VAL(name), peek(0))) {
-                    tableDelete(&vm.globals, OBJ_VAL(name));
-                    runtimeError("Undefined variable '%s'.", name->chars);
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 break;
