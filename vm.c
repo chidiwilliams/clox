@@ -233,13 +233,6 @@ static InterpretResult run() {
                 }
                 push((NUMBER_VAL(-AS_NUMBER(pop()))));
                 break;
-            case OP_TERNARY: {
-                double c = AS_NUMBER(pop());
-                double b = AS_NUMBER(pop());
-                double a = AS_NUMBER(pop());
-                push(NUMBER_VAL(a ? b : c));
-                break;
-            }
         }
     }
 #undef READ_BYTE
