@@ -715,18 +715,23 @@ static void switchBody() {
             declaration();
         }
 
+        // At the end of the case body, jump outside the switch body
         int endJump = emitJump(OP_JUMP);
 
         // The case condition jump resumes at the start of the next case condition
         // if any, or at the end of the switch block if none.
         patchJump(caseConditionJump);
 
-        emitByte(OP_POP); // Pop comparison result of current case
+        // Pop comparison result of current case
+        emitByte(OP_POP);
 
-        switchBody(); // Further switch body
+        // Continuation of switch body which may
+        // contain another case statement and an
+        // optional default case
+        switchBody();
 
         patchJump(endJump);
-    } else if (match(TOKEN_DEFAULT)) { // Used when switch only contains a default case
+    } else if (match(TOKEN_DEFAULT)) {
         consume(TOKEN_COLON, "Expect ':' after default condition");
 
         while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
