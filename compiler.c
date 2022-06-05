@@ -161,9 +161,9 @@ static void endCompiler() {
 
 static void expression();
 
-static void statement();
+static void statement(int loopStart);
 
-static void declaration();
+static void declaration(int loopStart);
 
 static ParseRule *getRule(TokenType type);
 
@@ -500,7 +500,7 @@ static void expressionStatement() {
     emitByte(OP_POP);
 }
 
-static void ifStatement() {
+static void ifStatement(int loopStart) {
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
@@ -509,7 +509,7 @@ static void ifStatement() {
 
     // Pops the if condition value in the then branch
     emitByte(OP_POP);
-    statement();
+    statement(loopStart);
 
     int elseJump = emitJump(OP_JUMP);
 
@@ -518,13 +518,13 @@ static void ifStatement() {
     // Pop the if condition value in the else branch
     emitByte(OP_POP);
 
-    if (match(TOKEN_ELSE)) statement();
+    if (match(TOKEN_ELSE)) statement(loopStart);
     patchJump(elseJump);
 }
 
-static void block() {
+static void block(int loopStart) {
     while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-        declaration();
+        declaration(loopStart);
     }
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
@@ -635,7 +635,7 @@ static void whileStatement() {
 
     int exitJump = emitJump(OP_JUMP_IF_FALSE);
     emitByte(OP_POP); // Pop condition value
-    statement();
+    statement(loopStart);
     emitLoop(loopStart);
 
     patchJump(exitJump);
@@ -686,7 +686,7 @@ static void forStatement() {
         patchJump(bodyJump);
     }
 
-    statement();
+    statement(loopStart);
     emitLoop(loopStart);
 
     if (exitJump != -1) {
@@ -700,7 +700,7 @@ static void forStatement() {
 // A switch body contains a case statement or a default statement.
 // To handle multiple case statements, the case is followed by a
 // recursive switch body.
-static void switchBody() {
+static void switchBody(int loopStart) {
     if (match(TOKEN_CASE)) {
         expression();
         emitByte(OP_COMPARE);
@@ -712,7 +712,7 @@ static void switchBody() {
 
         while (!check(TOKEN_CASE) && !check(TOKEN_DEFAULT) &&
                !check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-            declaration();
+            declaration(loopStart);
         }
 
         // At the end of the case body, jump outside the switch body
@@ -728,14 +728,14 @@ static void switchBody() {
         // Continuation of switch body which may
         // contain another case statement and an
         // optional default case
-        switchBody();
+        switchBody(loopStart);
 
         patchJump(endJump);
     } else if (match(TOKEN_DEFAULT)) {
         consume(TOKEN_COLON, "Expect ':' after default condition");
 
         while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-            declaration();
+            declaration(loopStart);
         }
     }
 }
@@ -746,35 +746,42 @@ static void switchBody() {
  * switchCase -> "case" expression ":" statement*
  * defaultCase -> "default" ":" statement*
  */
-static void switchStatement() {
+static void switchStatement(int loopStart) {
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after switch expression.");
 
     consume(TOKEN_LEFT_BRACE, "Expect '{' after switch expression.");
 
-    switchBody();
+    switchBody(loopStart);
 
     emitByte(OP_POP); // Pop switch condition value
     consume(TOKEN_RIGHT_BRACE,
             "Expect '}' after block.");
 }
 
-static void statement() {
+static void statement(int loopStart) {
     if (match(TOKEN_PRINT)) {
         printStatement();
     } else if (match(TOKEN_IF)) {
-        ifStatement();
+        ifStatement(loopStart);
     } else if (match(TOKEN_WHILE)) {
         whileStatement();
     } else if (match(TOKEN_FOR)) {
         forStatement();
     } else if (match(TOKEN_SWITCH)) {
-        switchStatement();
+        switchStatement(0);
     } else if (match(TOKEN_LEFT_BRACE)) {
         beginScope();
-        block();
+        block(loopStart);
         endScope();
+    } else if (match(TOKEN_CONTINUE)) {
+        if (loopStart == -1) {
+            errorAtCurrent("Cannot call continue outside loop statement.");
+        } else {
+            emitLoop(loopStart);
+        }
+        consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
     } else {
         expressionStatement();
     }
@@ -803,13 +810,13 @@ static void synchronize() {
     }
 }
 
-static void declaration() {
+static void declaration(int loopStart) {
     if (match(TOKEN_VAR)) {
         varDeclaration(false);
     } else if (match(TOKEN_CONST)) {
         varDeclaration(true);
     } else {
-        statement();
+        statement(loopStart);
     }
 
     if (parser.panicMode) synchronize();
@@ -827,7 +834,7 @@ bool compile(const char *source, Chunk *chunk) {
     advance();
 
     while (!match(TOKEN_EOF)) {
-        declaration();
+        declaration(-1);
     }
 
     consume(TOKEN_EOF, "Expect end of expression.");
