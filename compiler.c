@@ -697,6 +697,64 @@ static void forStatement() {
     endScope();
 }
 
+// A switch body contains a case statement or a default statement.
+// To handle multiple case statements, the case is followed by a
+// recursive switch body.
+static void switchBody() {
+    if (match(TOKEN_CASE)) {
+        expression();
+        emitByte(OP_COMPARE);
+        int caseConditionJump = emitJump(OP_JUMP_IF_FALSE);
+
+        consume(TOKEN_COLON, "Expect ':' after case condition.");
+
+        emitByte(OP_POP); // Pop comparison result of current case
+
+        while (!check(TOKEN_CASE) && !check(TOKEN_DEFAULT) &&
+               !check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+            declaration();
+        }
+
+        int endJump = emitJump(OP_JUMP);
+
+        // The case condition jump resumes at the start of the next case condition
+        // if any, or at the end of the switch block if none.
+        patchJump(caseConditionJump);
+
+        emitByte(OP_POP); // Pop comparison result of current case
+
+        switchBody(); // Further switch body
+
+        patchJump(endJump);
+    } else if (match(TOKEN_DEFAULT)) { // Used when switch only contains a default case
+        consume(TOKEN_COLON, "Expect ':' after default condition");
+
+        while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+            declaration();
+        }
+    }
+}
+
+/**
+ * switchStmt -> "switch" "(" expression ")"
+ *               "{" switchCase* defaultCase? "}"
+ * switchCase -> "case" expression ":" statement*
+ * defaultCase -> "default" ":" statement*
+ */
+static void switchStatement() {
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after switch expression.");
+
+    consume(TOKEN_LEFT_BRACE, "Expect '{' after switch expression.");
+
+    switchBody();
+
+    emitByte(OP_POP); // Pop switch condition value
+    consume(TOKEN_RIGHT_BRACE,
+            "Expect '}' after block.");
+}
+
 static void statement() {
     if (match(TOKEN_PRINT)) {
         printStatement();
@@ -706,6 +764,8 @@ static void statement() {
         whileStatement();
     } else if (match(TOKEN_FOR)) {
         forStatement();
+    } else if (match(TOKEN_SWITCH)) {
+        switchStatement();
     } else if (match(TOKEN_LEFT_BRACE)) {
         beginScope();
         block();

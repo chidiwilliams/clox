@@ -13,6 +13,7 @@ typedef enum {
     OP_TRUE,
     OP_FALSE,
     OP_EQUAL,
+    OP_COMPARE,
     OP_GREATER,
     OP_LESS,
     OP_NEGATE,

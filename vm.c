@@ -219,6 +219,12 @@ static InterpretResult run() {
                 push(BOOL_VAL(valuesEqual(a, b)));
                 break;
             }
+            case OP_COMPARE: {
+                Value b = pop();
+                Value a = peek(0);
+                push(BOOL_VAL(valuesEqual(a, b)));
+                break;
+            }
             case OP_SUBTRACT:
                 BINARY_OP(NUMBER_VAL, -);
                 break;
