@@ -543,43 +543,6 @@ static void endScope() {
     }
 }
 
-static void statement() {
-    if (match(TOKEN_PRINT)) {
-        printStatement();
-    } else if (match(TOKEN_IF)) {
-        ifStatement();
-    } else if (match(TOKEN_LEFT_BRACE)) {
-        beginScope();
-        block();
-        endScope();
-    } else {
-        expressionStatement();
-    }
-}
-
-static void synchronize() {
-    parser.panicMode = false;
-
-    while (parser.current.type != TOKEN_EOF) {
-        if (parser.previous.type == TOKEN_SEMICOLON) return;
-        switch (parser.current.type) {
-            case TOKEN_CLASS:
-            case TOKEN_FUN:
-            case TOKEN_VAR:
-            case TOKEN_CONST:
-            case TOKEN_FOR:
-            case TOKEN_IF:
-            case TOKEN_WHILE:
-            case TOKEN_PRINT:
-            case TOKEN_RETURN:
-                return;
-            default:; // Do nothing.
-        }
-
-        advance();
-    }
-}
-
 static void addLocal(Token name) {
     if (current->localCount == UINT8_COUNT) {
         errorAtCurrent("Too many variables in function.");
@@ -652,6 +615,127 @@ static void varDeclaration(bool isConst) {
     consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
 
     defineVariable(global, isConst);
+}
+
+static void emitLoop(int loopStart) {
+    emitByte(OP_LOOP);
+
+    int offset = currentChunk()->count - loopStart + 2;
+    if (offset > UINT16_MAX) errorAtCurrent("Loop body too large.");
+
+    emitByte((offset >> 8) & 0xff);
+    emitByte(offset & 0xff);
+}
+
+static void whileStatement() {
+    int loopStart = currentChunk()->count;
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+    int exitJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP); // Pop condition value
+    statement();
+    emitLoop(loopStart);
+
+    patchJump(exitJump);
+    emitByte(OP_POP); // Pop condition value
+}
+
+static void forStatement() {
+    beginScope();
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+
+    if (match(TOKEN_SEMICOLON)) {
+        // No initializer
+    } else if (match(TOKEN_VAR)) {
+        varDeclaration(false);
+    } else {
+        expressionStatement();
+    }
+
+    int loopStart = currentChunk()->count;
+
+    int exitJump = -1;
+    if (!match(TOKEN_SEMICOLON)) {
+        expression();
+        consume(TOKEN_SEMICOLON, "Expect ';' after loop condition.");
+
+        // Jump out of the loop if the condition is false.
+        exitJump = emitJump(OP_JUMP_IF_FALSE);
+        emitByte(OP_POP); // Pop condition value
+    }
+
+    // Increment expression.
+    if (!match(TOKEN_RIGHT_PAREN)) {
+        // Even though the increment expression appears before the body
+        // textually, it is executed after the body. If there's an
+        // increment, we jump to the body, and assign loopStart =
+        // incrementStart, so that when the body ends with emitLoop(loopStart),
+        // it continues at from the start of the increment.
+        int bodyJump = emitJump(OP_JUMP);
+        int incrementStart = currentChunk()->count;
+        expression();
+        emitByte(OP_POP); // Pop condition value
+        consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+
+        // After the increment is done, we loop back to
+        // loopStart, the point after the initializer clause.
+        emitLoop(loopStart);
+        loopStart = incrementStart;
+        patchJump(bodyJump);
+    }
+
+    statement();
+    emitLoop(loopStart);
+
+    if (exitJump != -1) {
+        patchJump(exitJump);
+        emitByte(OP_POP); // Pop condition value
+    }
+
+    endScope();
+}
+
+static void statement() {
+    if (match(TOKEN_PRINT)) {
+        printStatement();
+    } else if (match(TOKEN_IF)) {
+        ifStatement();
+    } else if (match(TOKEN_WHILE)) {
+        whileStatement();
+    } else if (match(TOKEN_FOR)) {
+        forStatement();
+    } else if (match(TOKEN_LEFT_BRACE)) {
+        beginScope();
+        block();
+        endScope();
+    } else {
+        expressionStatement();
+    }
+}
+
+static void synchronize() {
+    parser.panicMode = false;
+
+    while (parser.current.type != TOKEN_EOF) {
+        if (parser.previous.type == TOKEN_SEMICOLON) return;
+        switch (parser.current.type) {
+            case TOKEN_CLASS:
+            case TOKEN_FUN:
+            case TOKEN_VAR:
+            case TOKEN_CONST:
+            case TOKEN_FOR:
+            case TOKEN_IF:
+            case TOKEN_WHILE:
+            case TOKEN_PRINT:
+            case TOKEN_RETURN:
+                return;
+            default:; // Do nothing.
+        }
+
+        advance();
+    }
 }
 
 static void declaration() {
