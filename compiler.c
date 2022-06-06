@@ -161,9 +161,9 @@ static void endCompiler() {
 
 static void expression();
 
-static void statement(int loopStart);
+static void statement(int loopStart, int loopScopeDepth);
 
-static void declaration(int loopStart);
+static void declaration(int loopStart, int loopScopeDepth);
 
 static ParseRule *getRule(TokenType type);
 
@@ -500,7 +500,7 @@ static void expressionStatement() {
     emitByte(OP_POP);
 }
 
-static void ifStatement(int loopStart) {
+static void ifStatement(int loopStart, int loopScopeDepth) {
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
@@ -509,7 +509,7 @@ static void ifStatement(int loopStart) {
 
     // Pops the if condition value in the then branch
     emitByte(OP_POP);
-    statement(loopStart);
+    statement(loopStart, loopScopeDepth);
 
     int elseJump = emitJump(OP_JUMP);
 
@@ -518,13 +518,13 @@ static void ifStatement(int loopStart) {
     // Pop the if condition value in the else branch
     emitByte(OP_POP);
 
-    if (match(TOKEN_ELSE)) statement(loopStart);
+    if (match(TOKEN_ELSE)) statement(loopStart, loopScopeDepth);
     patchJump(elseJump);
 }
 
-static void block(int loopStart) {
+static void block(int loopStart, int loopScopeDepth) {
     while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-        declaration(loopStart);
+        declaration(loopStart, loopScopeDepth);
     }
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
@@ -535,6 +535,16 @@ static void beginScope() {
 
 static void endScope() {
     current->scopeDepth--;
+
+    while (current->localCount > 0 &&
+           current->locals[current->localCount - 1].depth > current->scopeDepth) {
+        emitByte(OP_POP);
+        current->localCount--;
+    }
+}
+
+static void endScopeUntil(int scopeDepth) {
+    current->scopeDepth = scopeDepth;
 
     while (current->localCount > 0 &&
            current->locals[current->localCount - 1].depth > current->scopeDepth) {
@@ -635,7 +645,7 @@ static void whileStatement() {
 
     int exitJump = emitJump(OP_JUMP_IF_FALSE);
     emitByte(OP_POP); // Pop condition value
-    statement(loopStart);
+    statement(loopStart, current->scopeDepth);
     emitLoop(loopStart);
 
     patchJump(exitJump);
@@ -686,7 +696,7 @@ static void forStatement() {
         patchJump(bodyJump);
     }
 
-    statement(loopStart);
+    statement(loopStart, current->scopeDepth);
     emitLoop(loopStart);
 
     if (exitJump != -1) {
@@ -700,7 +710,7 @@ static void forStatement() {
 // A switch body contains a case statement or a default statement.
 // To handle multiple case statements, the case is followed by a
 // recursive switch body.
-static void switchBody(int loopStart) {
+static void switchBody(int loopStart, int loopScopeDepth) {
     if (match(TOKEN_CASE)) {
         expression();
         emitByte(OP_COMPARE);
@@ -712,7 +722,7 @@ static void switchBody(int loopStart) {
 
         while (!check(TOKEN_CASE) && !check(TOKEN_DEFAULT) &&
                !check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-            declaration(loopStart);
+            declaration(loopStart, loopScopeDepth);
         }
 
         // At the end of the case body, jump outside the switch body
@@ -728,14 +738,14 @@ static void switchBody(int loopStart) {
         // Continuation of switch body which may
         // contain another case statement and an
         // optional default case
-        switchBody(loopStart);
+        switchBody(loopStart, loopScopeDepth);
 
         patchJump(endJump);
     } else if (match(TOKEN_DEFAULT)) {
         consume(TOKEN_COLON, "Expect ':' after default condition");
 
         while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-            declaration(loopStart);
+            declaration(loopStart, loopScopeDepth);
         }
     }
 }
@@ -746,39 +756,40 @@ static void switchBody(int loopStart) {
  * switchCase -> "case" expression ":" statement*
  * defaultCase -> "default" ":" statement*
  */
-static void switchStatement(int loopStart) {
+static void switchStatement(int loopStart, int loopScopeDepth) {
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after switch expression.");
 
     consume(TOKEN_LEFT_BRACE, "Expect '{' after switch expression.");
 
-    switchBody(loopStart);
+    switchBody(loopStart, loopScopeDepth);
 
     emitByte(OP_POP); // Pop switch condition value
     consume(TOKEN_RIGHT_BRACE,
             "Expect '}' after block.");
 }
 
-static void statement(int loopStart) {
+static void statement(int loopStart, int loopScopeDepth) {
     if (match(TOKEN_PRINT)) {
         printStatement();
     } else if (match(TOKEN_IF)) {
-        ifStatement(loopStart);
+        ifStatement(loopStart, loopScopeDepth);
     } else if (match(TOKEN_WHILE)) {
         whileStatement();
     } else if (match(TOKEN_FOR)) {
         forStatement();
     } else if (match(TOKEN_SWITCH)) {
-        switchStatement(0);
+        switchStatement(loopStart, loopScopeDepth);
     } else if (match(TOKEN_LEFT_BRACE)) {
         beginScope();
-        block(loopStart);
+        block(loopStart, loopScopeDepth);
         endScope();
     } else if (match(TOKEN_CONTINUE)) {
         if (loopStart == -1) {
             errorAtCurrent("Cannot call continue outside loop statement.");
         } else {
+            endScopeUntil(loopScopeDepth);
             emitLoop(loopStart);
         }
         consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
@@ -810,13 +821,13 @@ static void synchronize() {
     }
 }
 
-static void declaration(int loopStart) {
+static void declaration(int loopStart, int loopScopeDepth) {
     if (match(TOKEN_VAR)) {
         varDeclaration(false);
     } else if (match(TOKEN_CONST)) {
         varDeclaration(true);
     } else {
-        statement(loopStart);
+        statement(loopStart, loopScopeDepth);
     }
 
     if (parser.panicMode) synchronize();
@@ -834,7 +845,7 @@ bool compile(const char *source, Chunk *chunk) {
     advance();
 
     while (!match(TOKEN_EOF)) {
-        declaration(-1);
+        declaration(-1, -1);
     }
 
     consume(TOKEN_EOF, "Expect end of expression.");
