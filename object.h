@@ -33,7 +33,15 @@ typedef struct {
     ObjString *name;
 } ObjFunction;
 
-typedef Value (*NativeFn)(int argCount, Value *args);
+// TODO: Can I use InterpretResult here instead?
+// Also is there a better way to return this value
+// than by passing it as an argument to the function?
+typedef enum {
+    RESULT_OK,
+    RESULT_RUNTIME_ERROR
+} NativeFnResult;
+
+typedef Value (*NativeFn)(int argCount, Value *args, NativeFnResult *result);
 
 typedef struct {
     Obj obj;

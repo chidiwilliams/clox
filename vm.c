@@ -1,5 +1,6 @@
 #include <printf.h>
 #include <string.h>
+#include <math.h>
 #include "vm.h"
 #include "common.h"
 #include "debug.h"
@@ -10,51 +11,9 @@
 
 VM vm;
 
-static Value clockNative(int argCount, Value *args) {
-    return NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
-}
-
 void resetStack() {
     vm.stackTop = vm.stack;
     vm.frameCount = 0;
-}
-
-static void defineNative(const char *name, NativeFn function, int arity) {
-    push(OBJ_VAL(copyString(name, (int) strlen(name))));
-    push(OBJ_VAL(newNative(function, arity)));
-    tableSet(&vm.globals, vm.stack[0], vm.stack[1]);
-    pop();
-    pop();
-}
-
-void initVM() {
-    resetStack();
-    vm.objects = NULL;
-    initTable(&vm.strings);
-    initTable(&vm.globals);
-
-    defineNative("clock", clockNative, 0);
-}
-
-void freeVM() {
-    freeTable(&vm.globals);
-    freeTable(&vm.strings);
-    freeObjects();
-}
-
-void push(Value value) {
-    *vm.stackTop = value;
-    vm.stackTop++;
-}
-
-Value pop() {
-    vm.stackTop--;
-    return *vm.stackTop;
-}
-
-static Value peek(int distance) {
-    return vm.stackTop[-1 - distance];
-
 }
 
 static void runtimeError(const char *format, ...) {
@@ -82,6 +41,58 @@ static void runtimeError(const char *format, ...) {
     }
 
     resetStack();
+}
+
+static Value clockNative(int argCount, Value *args, NativeFnResult *result) {
+    return NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
+}
+
+static Value sqrtNative(int argCount, Value *args, NativeFnResult *result) {
+    if (!IS_NUMBER(*args)) {
+        runtimeError("Argument must be a number");
+        *result = RESULT_RUNTIME_ERROR;
+        return NIL_VAL();
+    }
+    return NUMBER_VAL(sqrt(AS_NUMBER(*args)));
+}
+
+static void defineNative(const char *name, NativeFn function, int arity) {
+    push(OBJ_VAL(copyString(name, (int) strlen(name))));
+    push(OBJ_VAL(newNative(function, arity)));
+    tableSet(&vm.globals, vm.stack[0], vm.stack[1]);
+    pop();
+    pop();
+}
+
+void initVM() {
+    resetStack();
+    vm.objects = NULL;
+    initTable(&vm.strings);
+    initTable(&vm.globals);
+
+    defineNative("clock", clockNative, 0);
+    defineNative("sqrt", sqrtNative, 1);
+}
+
+void freeVM() {
+    freeTable(&vm.globals);
+    freeTable(&vm.strings);
+    freeObjects();
+}
+
+void push(Value value) {
+    *vm.stackTop = value;
+    vm.stackTop++;
+}
+
+Value pop() {
+    vm.stackTop--;
+    return *vm.stackTop;
+}
+
+static Value peek(int distance) {
+    return vm.stackTop[-1 - distance];
+
 }
 
 
@@ -133,7 +144,12 @@ static bool callValue(Value callee, int argCount) {
                     return false;
                 }
 
-                Value result = native->function(argCount, vm.stackTop - argCount);
+                NativeFnResult fnResult = RESULT_OK;
+                Value result = native->function(argCount, vm.stackTop - argCount, &fnResult);
+                if (fnResult != RESULT_OK) {
+                    return false;
+                }
+
                 vm.stackTop -= argCount + 1;
                 push(result);
                 return true;
