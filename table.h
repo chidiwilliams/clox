@@ -1,12 +1,7 @@
-//
-// Created by Chidi Williams on 5/9/22.
-//
-
 #ifndef CLOX_TABLE_H
 #define CLOX_TABLE_H
 
-
-#include "object.h"
+#include "value.h"
 
 typedef struct {
     Value key;
