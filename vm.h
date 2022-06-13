@@ -21,9 +21,16 @@ typedef struct {
     Value *stackTop; // points to the location where the next item in the stack goes
     Table strings;
     ObjUpvalue *openUpvalues;
+
+    size_t bytesAllocated;
+    size_t nextGC;
+
     Obj *objects;
     Table globals;
     Table constants;
+    int grayCount;
+    int grayCapacity;
+    Obj **grayStack;
 } VM;
 
 typedef enum {

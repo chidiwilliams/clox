@@ -185,3 +185,20 @@ void printTable(Table *table) {
     }
     printf("\n");
 }
+
+void markTable(Table *table) {
+    for (int i = 0; i < table->capacity; i++) {
+        Entry *entry = &table->entries[i];
+        markValue(entry->key);
+        markValue(entry->value);
+    }
+}
+
+void tableRemoveWhite(Table *table) {
+    for (int i = 0; i < table->capacity; i++) {
+        Entry *entry = &table->entries[i];
+        if (IS_OBJ(entry->key) && !AS_OBJ(entry->key)->isMarked) {
+            tableDelete(table, entry->key);
+        }
+    }
+}

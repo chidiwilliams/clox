@@ -8,6 +8,7 @@
 
 #include "debug.h"
 #include "object.h"
+#include "memory.h"
 
 #endif
 
@@ -54,6 +55,9 @@ typedef struct {
 } Local;
 
 typedef struct {
+    // index of the local variable/upvalue
+    // this upvalue points to in the enclosing
+    // compiler's array of locals/upvalues
     uint8_t index;
     bool isLocal;
 } Upvalue;
@@ -1016,4 +1020,12 @@ ObjFunction *compile(const char *source) {
 
     ObjFunction *function = endCompiler();
     return parser.hadError ? NULL : function;
+}
+
+void markCompilerRoots() {
+    Compiler *compiler = current;
+    while (compiler != NULL) {
+        markObject((Obj *) compiler->function);
+        compiler = compiler->enclosing;
+    }
 }
