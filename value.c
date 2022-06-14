@@ -1,9 +1,4 @@
-//
-// Created by Chidi Williams on 4/23/22.
-//
-
 #include <stdio.h>
-#include <string.h>
 
 #include "memory.h"
 #include "value.h"

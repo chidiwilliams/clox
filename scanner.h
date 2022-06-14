@@ -1,7 +1,3 @@
-//
-// Created by Chidi Williams on 5/5/22.
-//
-
 #ifndef CLOX_SCANNER_H
 #define CLOX_SCANNER_H
 
@@ -9,6 +5,7 @@ typedef enum {
     // Single-character tokens
     TOKEN_LEFT_PAREN, TOKEN_RIGHT_PAREN,
     TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,
+    TOKEN_LEFT_SQUARE_BRACKET, TOKEN_RIGHT_SQUARE_BRACKET,
     TOKEN_COMMA, TOKEN_DOT, TOKEN_MINUS, TOKEN_PLUS,
     TOKEN_SEMICOLON, TOKEN_SLASH, TOKEN_STAR,
     // One or two character tokens

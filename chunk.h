@@ -40,6 +40,8 @@ typedef enum {
     OP_SET_PROPERTY,
     OP_GET_LOCAL,
     OP_SET_LOCAL,
+    OP_GET_INDEX,
+    OP_SET_INDEX,
     OP_CLASS,
 } OpCode;
 

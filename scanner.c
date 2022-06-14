@@ -229,6 +229,10 @@ Token scanToken() {
             return makeToken(TOKEN_LEFT_BRACE);
         case '}':
             return makeToken(TOKEN_RIGHT_BRACE);
+        case '[':
+            return makeToken(TOKEN_LEFT_SQUARE_BRACKET);
+        case ']':
+            return makeToken(TOKEN_RIGHT_SQUARE_BRACKET);
         case ';':
             return makeToken(TOKEN_SEMICOLON);
         case ',':

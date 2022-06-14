@@ -446,6 +446,54 @@ static InterpretResult run() {
                 push(value);
                 break;
             }
+            case OP_GET_INDEX: {
+                if (!IS_INSTANCE(peek(1))) {
+                    runtimeError("Only instances have properties.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjInstance *instance = AS_INSTANCE(peek(1));
+
+                if (!IS_STRING(peek(0))) {
+                    runtimeError("Index key must be a string.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjString *key = AS_STRING(peek(0));
+
+                Value value;
+                if (tableGet(&instance->fields, OBJ_VAL(key), &value)) {
+                    pop(); // key
+                    pop(); // instance
+                    push(value);
+                    break;
+                }
+
+                runtimeError("Undefined property '%s'.", key->chars);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_SET_INDEX: {
+                if (!IS_INSTANCE(peek(2))) {
+                    runtimeError("Only instances have fields.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjInstance *instance = AS_INSTANCE(peek(2));
+
+                if (!IS_STRING(peek(1))) {
+                    runtimeError("Index name must be a string.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjString *name = AS_STRING(peek(1));
+
+                tableSet(&instance->fields, OBJ_VAL(name), peek(0));
+                Value value = pop();
+                pop(); // key
+                pop(); // instance
+                push(value);
+                break;
+            }
             case OP_EQUAL: {
                 Value b = pop();
                 Value a = pop();
