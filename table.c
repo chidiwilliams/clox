@@ -203,3 +203,12 @@ void tableRemoveWhite(Table *table) {
         }
     }
 }
+
+bool tableHasKey(Table *table, Value key) {
+    if (table->count == 0) return false;
+
+    Entry *entry = findEntry(table->entries, table->capacity, key);
+    if (IS_NIL(entry->key)) return false;
+
+    return true;
+}

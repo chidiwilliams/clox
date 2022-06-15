@@ -48,9 +48,47 @@ static Value clockNative(int argCount, Value *args, NativeFnResult *result) {
     return NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
 }
 
+static Value deleteNative(int argCount, Value *args, NativeFnResult *result) {
+    if (!IS_INSTANCE(args[0])) {
+        runtimeError("Argument must be an object instance.");
+        *result = RESULT_RUNTIME_ERROR;
+        return NIL_VAL();
+    }
+
+    ObjInstance *instance = AS_INSTANCE(args[0]);
+
+    Value key = args[1];
+    if (!IS_STRING(key)) {
+        runtimeError("Key must be a string.");
+        *result = RESULT_RUNTIME_ERROR;
+        return NIL_VAL();
+    }
+
+    return BOOL_VAL(tableDelete(&instance->fields, key));
+}
+
+static Value hasNative(int argCount, Value *args, NativeFnResult *result) {
+    if (!IS_INSTANCE(args[0])) {
+        runtimeError("Argument must be an object instance.");
+        *result = RESULT_RUNTIME_ERROR;
+        return NIL_VAL();
+    }
+
+    ObjInstance *instance = AS_INSTANCE(args[0]);
+
+    Value key = args[1];
+    if (!IS_STRING(key)) {
+        runtimeError("Key must be a string.");
+        *result = RESULT_RUNTIME_ERROR;
+        return NIL_VAL();
+    }
+
+    return BOOL_VAL(tableHasKey(&instance->fields, key));
+}
+
 static Value sqrtNative(int argCount, Value *args, NativeFnResult *result) {
     if (!IS_NUMBER(*args)) {
-        runtimeError("Argument must be a number");
+        runtimeError("Argument must be a number.");
         *result = RESULT_RUNTIME_ERROR;
         return NIL_VAL();
     }
@@ -78,6 +116,8 @@ void initVM() {
 
     defineNative("clock", clockNative, 0);
     defineNative("sqrt", sqrtNative, 1);
+    defineNative("has", hasNative, 2);
+    defineNative("delete", deleteNative, 2);
 }
 
 void freeVM() {
