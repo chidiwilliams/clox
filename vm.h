@@ -21,6 +21,7 @@ typedef struct {
     Value stack[STACK_MAX];
     Value *stackTop; // points to the location where the next item in the stack goes
     Table strings;
+    ObjString *initString;
     ObjUpvalue *openUpvalues;
 
     size_t bytesAllocated;
