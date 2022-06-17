@@ -18,6 +18,12 @@ void freeTable(Table *table) {
 }
 
 uint32_t getKeyIndex(Value value) {
+#ifdef NAN_BOXING
+    if (IS_BOOL(value)) return AS_BOOL(value);
+    if (IS_NUMBER(value)) return AS_NUMBER(value);
+    if (IS_STRING(value)) return AS_STRING(value)->hash;
+    return 0;
+#else
     switch (value.type) {
         case VAL_BOOL:
             return AS_BOOL(value);
@@ -31,6 +37,7 @@ uint32_t getKeyIndex(Value value) {
                     return AS_STRING(value)->hash;
             }
     }
+#endif
 }
 
 /**
@@ -52,7 +59,7 @@ uint32_t getKeyIndex(Value value) {
  * @return
  */
 Entry *findEntry(Entry *entries, int capacity, Value key) {
-    uint32_t index = getKeyIndex(key) % capacity;
+    uint32_t index = getKeyIndex(key) & (capacity - 1);
     Entry *tombstone = NULL;
 
     for (;;) {
@@ -72,7 +79,7 @@ Entry *findEntry(Entry *entries, int capacity, Value key) {
             return entry;
         }
 
-        index = (index + 1) % capacity;
+        index = (index + 1) & (capacity - 1);
     }
 }
 
@@ -152,7 +159,7 @@ bool tableDelete(Table *table, Value key) {
 ObjString *tableFindString(Table *table, const char *chars, int length, uint32_t hash) {
     if (table->count == 0) return NULL;
 
-    uint32_t index = hash % table->capacity;
+    uint32_t index = hash & (table->capacity - 1);
     for (;;) {
         Entry *entry = &table->entries[index];
         if (IS_NIL(entry->key)) {
@@ -167,7 +174,7 @@ ObjString *tableFindString(Table *table, const char *chars, int length, uint32_t
             }
         }
 
-        index = (index + 1) % table->capacity;
+        index = (index + 1) & (table->capacity - 1);
     }
 }
 
