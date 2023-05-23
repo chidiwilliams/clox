@@ -1,5 +1,6 @@
 #include <printf.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "compiler.h"
 #include "scanner.h"

@@ -1,0 +1,3 @@
+tasks:
+  - init: cmake -B build -S .
+    command: cmake --build build
